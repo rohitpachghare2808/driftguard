@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+.git/
+.github/
+.pytest_cache/
+model.pkl
+metrics.json

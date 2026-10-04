@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+model.pkl
+metrics.json
+reference_data.csv
+drift_report.txt
+.env

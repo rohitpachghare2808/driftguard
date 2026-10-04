@@ -1,0 +1,36 @@
+name: Drift-Monitor
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python train.py
+      - id: check
+        run: python drift_check.py
+        continue-on-error: true
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: drift_report.txt
+      - name: Trigger retrain pipeline on drift
+        if: steps.check.outcome == 'failure'
+        run: |
+          echo "Drift detected - triggering retrain pipeline"
+          gh workflow run ci-cd.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
