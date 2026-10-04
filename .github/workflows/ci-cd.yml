@@ -32,6 +32,39 @@ jobs:
         with:
           context: .
           push: true
+          build-args: GIT_SHA=${{ github.sha }}
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/driftguard:${{ github.sha }}
             ${{ secrets.DOCKER_USERNAME }}/driftguard:latest
+
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Deploy new version to Render
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&imgURL=docker.io/${{ secrets.DOCKER_USERNAME }}/driftguard:${{ github.sha }}"
+      - name: Smoke test (new commit must be live)
+        run: |
+          for i in $(seq 1 20); do
+            echo "Attempt $i"
+            if curl -fsS ${{ secrets.SERVICE_URL }}/health | grep -q "${{ github.sha }}"; then
+              echo "New version is live and healthy"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "New version did not become healthy"
+          exit 1
+      - name: Promote image to stable
+        run: |
+          docker buildx imagetools create -t ${{ secrets.DOCKER_USERNAME }}/driftguard:stable ${{ secrets.DOCKER_USERNAME }}/driftguard:${{ github.sha }}
+      - name: Roll back to last stable image
+        if: failure()
+        run: |
+          echo "Smoke test failed - rolling back to stable"
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&imgURL=docker.io/${{ secrets.DOCKER_USERNAME }}/driftguard:stable"
