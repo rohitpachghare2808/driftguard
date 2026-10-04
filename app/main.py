@@ -7,8 +7,7 @@ import pandas as pd
 app = FastAPI()
 model = joblib.load("model.pkl")
 VERSION = "v1"
-COMMIT = os.getenv("GIT_SHA", "dev")
-
+COMMIT = "broken"
 
 @app.get("/health")
 def health():
